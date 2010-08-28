@@ -26,12 +26,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-
 # configuration
-set :scm, :git
-set :ssh_options, { :forward_agent => true, :port => 22 }
 default_run_options[:pty] = true # fix to display interactive password prompts
-# abort "please specify target server as last argument" unless ARGV.count >= 2
 role :target, ARGV[-1]
 cwd = File.expand_path(File.dirname(__FILE__))
 
@@ -71,7 +67,7 @@ namespace :chef do
       'GEM_HOME'     => "/usr/local/rvm/gems/ruby-#{rvm_ruby_version}",
       'GEM_PATH'     => "/usr/local/rvm/gems/ruby-#{rvm_ruby_version}:/usr/local/rvm/gems/ruby-#{rvm_ruby_version}@global",
       'BUNDLE_PATH'  => "/usr/local/rvm/gems/ruby-#{rvm_ruby_version}"
-    }
+      }
     msudo [
       # install RVM
       'aptitude install -y curl git-core',
@@ -89,13 +85,12 @@ namespace :chef do
       # install Ruby
       "rvm install #{rvm_ruby_version} -C --with-openssl-dir=$rvm_path/usr,--with-readline-dir=$rvm_path/usr",
       "rvm use #{rvm_ruby_version} --default",
-      "echo 'gem: --no-ri --no-rdoc' | #{sudo} tee -a /etc/gemrc"
+      "echo 'gem: --no-ri --no-rdoc' | #{sudo} tee -a /etc/gemrc" # saves time; don't need docs on server
     ]
   end
 
   desc "Install Chef and Ohai gems as root"
   task :install_chef, roles: :target do
-    # install gems
     sudo 'gem source -a http://gems.opscode.com/'
     sudo 'gem install ohai chef'
   end
@@ -108,10 +103,10 @@ namespace :chef do
     rsync cwd + '/', cookbook_dir
     sudo 'mkdir -p /etc/chef'
     sudo_put %Q(
-file_cache_path "#{cookbook_dir}"
-cookbook_path ["#{cookbook_dir}/cookbooks", "#{cookbook_dir}/site-cookbooks"]
-role_path "#{cookbook_dir}/roles"
-), '/etc/chef/solo.rb',
+      file_cache_path "#{cookbook_dir}"
+      cookbook_path ["#{cookbook_dir}/cookbooks", "#{cookbook_dir}/site-cookbooks"]
+      role_path "#{cookbook_dir}/roles"
+      ), '/etc/chef/solo.rb',
       via: :scp,
       mode: '0644'
   end
@@ -127,7 +122,7 @@ role_path "#{cookbook_dir}/roles"
 
   desc "Execute Chef-Solo"
   task :solo, roles: :target do
-    sudo 'chef-solo -c /etc/chef/solo.rb -j /etc/chef/dna.json -l debug'
+    sudo_env 'chef-solo -c /etc/chef/solo.rb -j /etc/chef/dna.json -l debug'
   end
 
   desc "Remove all traces of Chef"
@@ -139,9 +134,13 @@ end
 
 
 # helpers
-def msudo(cmd)
-  cmd.each do |c|
-    sudo c
+def sudo_env(cmd)
+  run "#{sudo} -i #{cmd}"
+end
+
+def msudo(cmds)
+  cmds.each do |cmd|
+    sudo cmd
   end
 end
 
