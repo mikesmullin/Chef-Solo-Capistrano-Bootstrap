@@ -66,32 +66,31 @@ namespace :chef do
   task :install_rvm_ruby, roles: :target do
     rvm_ruby_version = '1.9.2-p0'
     set :default_environment, {
-      'PATH'         => "$HOME/.rvm/bin:$PATH",
+      'PATH'         => "/usr/local/rvm/gems/ruby-#{rvm_ruby_version}/bin:/usr/local/rvm/gems/ruby-#{rvm_ruby_version}@global/bin:/usr/local/rvm/rubies/ruby-#{rvm_ruby_version}/bin:$PATH",
       'RUBY_VERSION' => "ruby #{rvm_ruby_version}",
-      'GEM_HOME'     => "$HOME/.rvm/gems/ruby-#{rvm_ruby_version}",
-      'GEM_PATH'     => "$HOME/.rvm/gems/ruby-#{rvm_ruby_version}:$HOME/.rvm/gems/ruby-#{rvm_ruby_version}@global",
-      'BUNDLE_PATH'  => "$HOME/.rvm/gems/ruby-#{rvm_ruby_version}"
+      'GEM_HOME'     => "/usr/local/rvm/gems/ruby-#{rvm_ruby_version}",
+      'GEM_PATH'     => "/usr/local/rvm/gems/ruby-#{rvm_ruby_version}:/usr/local/rvm/gems/ruby-#{rvm_ruby_version}@global",
+      'BUNDLE_PATH'  => "/usr/local/rvm/gems/ruby-#{rvm_ruby_version}"
     }
-    sudo 'aptitude install -y curl git-core'
-    run 'mkdir -p ~/.rvm/src/ && cd ~/.rvm/src && rm -rf ./rvm/ && git clone --depth 1 git://github.com/wayneeseguin/rvm.git && cd rvm && ./install'
-    run %q(sed -i 's/^\[/# [/' ~/.bashrc)
-    run %q(echo '[[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm"' >> ~/.bashrc)
+    msudo [
+      # install RVM
+      'aptitude install -y curl git-core',
+      "curl -L http://bit.ly/rvm-install-system-wide | #{sudo} bash",
+      %q(sed -i 's/^\[/# [/' /root/.bashrc),
+      %q(echo '[[ -s "/usr/local/rvm/scripts/rvm" ]] && source "/usr/local/rvm/scripts/rvm"' | sudo tee -a /root/.bashrc),
 
-    # dependencies for compiling Ruby
-    sudo 'aptitude install -y bison build-essential autoconf zlib1g-dev libssl-dev libxml2-dev libreadline6-dev'
-    # dependencies for compiling our RubyGems gems
-    sudo 'aptitude install -y libpq-dev libmysql-ruby libmysqlclient-dev sqlite3 libsqlite3-dev libxslt-dev libxml2-dev imagemagick'
+      # dependencies for compiling Ruby
+      'aptitude install -y bison build-essential autoconf zlib1g-dev libssl-dev libxml2-dev libreadline6-dev',
 
-    # openssl package for RVM
-    run 'rvm package install openssl'
+      # RVM packages for Ruby
+      'rvm package install openssl',
+      'rvm package install readline',
 
-    # readline package for RVM
-    run 'rvm package install readline'
-
-    # installing ruby
-    run "rvm install #{rvm_ruby_version} -C --with-openssl-dir=$rvm_path/usr,--with-readline-dir=$rvm_path/usr"
-    run "rvm use #{rvm_ruby_version} --default"
-    run "echo 'gem: --no-ri --no-rdoc' | #{sudo} tee /etc/gemrc"
+      # install Ruby
+      "rvm install #{rvm_ruby_version} -C --with-openssl-dir=$rvm_path/usr,--with-readline-dir=$rvm_path/usr",
+      "rvm use #{rvm_ruby_version} --default",
+      "echo 'gem: --no-ri --no-rdoc' | #{sudo} tee -a /etc/gemrc"
+    ]
   end
 
   desc "Install Chef and Ohai gems as root"
@@ -140,6 +139,12 @@ end
 
 
 # helpers
+def msudo(cmd)
+  cmd.each do |c|
+    sudo c
+  end
+end
+
 def sudo_put(data, target, opts={})
   tmp = "/tmp/~tmp-#{rand(9999999)}"
   put data, tmp, opts
