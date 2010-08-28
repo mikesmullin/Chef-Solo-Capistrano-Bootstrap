@@ -21,7 +21,7 @@ Installation
 
   - Git clone or wget the Capfile into your cookbook repo root dir
 
-    `wget`
+    `wget http://github.com/mikesmullin/Chef-Solo-Capistrano-Bootstrap/raw/master/Capfile`
 
   - Write your cookbook recipes and roles
 
