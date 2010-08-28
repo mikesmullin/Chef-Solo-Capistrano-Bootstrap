@@ -41,7 +41,7 @@ Example
     cap chef:bootstrap observer 149.60.10.25
 
 There are other commands you can find by `cap -vT` but remember to include the last
-two args as <role> and <remote_host> for all of them, or they won't work. These are separated
+two args as `<role>` and `<remote_host>` for all of them, or they won't work. These are separated
 out in case one fails so you can resume from where it left off.
 
 Also, during development, it is handy to use:
