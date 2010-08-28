@@ -19,6 +19,10 @@ Installation
 
     `mkdir ./dna/ && touch ./dna/example-node.json`
 
+  - Install Capistrano gem on the local machine either as a system gem or using bundler
+
+    `gem install capistrano`
+
   - Git clone or wget the Capfile into your cookbook repo root dir
 
     `wget http://github.com/mikesmullin/Chef-Solo-Capistrano-Bootstrap/raw/master/Capfile`
