@@ -30,6 +30,9 @@
 default_run_options[:pty] = true # fix to display interactive password prompts
 role :target, ARGV[-1]
 cwd = File.expand_path(File.dirname(__FILE__))
+cookbook_dir = '/var/chef-solo'
+dna_dir = '/etc/chef'
+node = ARGV[-2]
 
 # tasks
 namespace :chef do
@@ -67,7 +70,7 @@ namespace :chef do
       'GEM_HOME'     => "/usr/local/rvm/gems/ruby-#{rvm_ruby_version}",
       'GEM_PATH'     => "/usr/local/rvm/gems/ruby-#{rvm_ruby_version}:/usr/local/rvm/gems/ruby-#{rvm_ruby_version}@global",
       'BUNDLE_PATH'  => "/usr/local/rvm/gems/ruby-#{rvm_ruby_version}"
-      }
+    }
     msudo [
       # install RVM
       'aptitude install -y curl git-core',
@@ -97,38 +100,51 @@ namespace :chef do
 
   desc "Install Cookbook Repository from cwd"
   task :install_cookbook_repo, roles: :target do
-    cookbook_dir = '/var/chef-solo'
+    sudo 'aptitude install -y rsync'
     sudo "mkdir -m 0775 -p #{cookbook_dir}"
     sudo "chown `whoami`.`whoami` #{cookbook_dir}"
+    sudo "mkdir -p #{dna_dir}"
+    reinstall_cookbook_repo
+  end
+
+  desc "Re-install Cookbook Repository from cwd"
+  task :reinstall_cookbook_repo, roles: :target do
     rsync cwd + '/', cookbook_dir
-    sudo 'mkdir -p /etc/chef'
     sudo_put %Q(
       file_cache_path "#{cookbook_dir}"
       cookbook_path ["#{cookbook_dir}/cookbooks", "#{cookbook_dir}/site-cookbooks"]
       role_path "#{cookbook_dir}/roles"
-      ), '/etc/chef/solo.rb',
+      ), "#{dna_dir}/solo.rb",
       via: :scp,
       mode: '0644'
   end
 
   desc "Install ./dna/*.json for specified node"
   task :install_dna, roles: :target do
-    node = ARGV[-2]
-    sudo 'mkdir -p /etc/chef'
-    sudo_put File.read("#{cwd}/dna/#{node}.json"), '/etc/chef/dna.json',
+    sudo "mkdir -p #{dna_dir}"
+    reinstall_dna
+  end
+
+  desc "Re-install ./dna/*.json for specified node"
+  task :reinstall_dna, roles: :target do
+    sudo_put File.read("#{cwd}/dna/#{node}.json"), "#{dna_dir}/dna.json",
       via: :scp,
       mode: '0644'
   end
 
   desc "Execute Chef-Solo"
   task :solo, roles: :target do
-    sudo_env 'chef-solo -c /etc/chef/solo.rb -j /etc/chef/dna.json -l debug'
+    reinstall_cookbook_repo
+    reinstall_dna
+    sudo_env "chef-solo -c #{dna_dir}/solo.rb -j #{dna_dir}/dna.json -l debug"
   end
 
   desc "Remove all traces of Chef"
   task :cleanup, roles: :target do
-    sudo 'rm -rf /etc/chef /var/chef-solo'
-    sudo 'gem uninstall -ay chef ohai'
+    msudo [
+      "rm -rf #{dna_dir} #{cookbook_dir}",
+      'gem uninstall -ay chef ohai'
+    ]
   end
 end
 
@@ -151,20 +167,7 @@ def sudo_put(data, target, opts={})
   sudo "cp -f #{tmp} #{target} && rm #{tmp}"
 end
 
-def sudo_upload_tar(from, to, opts={})
-  tmp = "tmp-#{rand(9999999)}.tar.gz"
-  system %Q(tar --exclude-vcs --exclude .deb -czf /tmp/"#{tmp}" "#{from}")
-  put(File.read("/tmp/#{tmp}"), "#{to}/#{tmp}", opts)
-  sudo <<-CMD
-    tar -C #{to} zxvf #{to}/#{tmp} &&
-    rm -rf #{to}/#{tmp}
-  CMD
-  system("rm /tmp/#{tmp}")
-  on_rollback { run "rm /tmp/#{tmp}" }
-end
-
 def rsync(from, to)
-  sudo 'aptitude install -y rsync'
   find_servers_for_task(current_task).each do |server|
     puts `rsync -avz -e ssh "#{from}" "#{ENV['USER']}@#{server}:#{to}" \
       --exclude ".svn" --exclude ".git"`
