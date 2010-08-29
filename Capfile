@@ -44,8 +44,6 @@ namespace :chef do
     install_cookbook_repo
     install_dna
     solo
-
-    exit # subsequent args are not tasks to be run
   end
 
   desc "Install Ruby Enterprise Edition"
@@ -140,6 +138,8 @@ namespace :chef do
   desc "Execute Chef-Solo"
   task :solo, roles: :target do
     sudo_env "chef-solo -c #{dna_dir}/solo.rb -j #{dna_dir}/dna.json -l debug"
+
+    exit # subsequent args are not tasks to be run
   end
 
   desc "Remove all traces of Chef"
