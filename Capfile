@@ -90,6 +90,11 @@ namespace :chef do
       "rvm use #{rvm_ruby_version} --default",
       "echo 'gem: --no-ri --no-rdoc' | #{sudo} tee -a /etc/gemrc" # saves time; don't need docs on server
     ]
+    mrun [
+      "#{sudo} usermod -a -G rvm `whoami`", # add user to the RVM group
+      %q(sed -i 's/^\[/# [/' ~/.bashrc),
+      %q(echo '[[ -s "/usr/local/rvm/scripts/rvm" ]] && source "/usr/local/rvm/scripts/rvm"' | tee -a ~/.bashrc)
+    ]
   end
 
   desc "Install Chef and Ohai gems as root"
@@ -134,8 +139,6 @@ namespace :chef do
 
   desc "Execute Chef-Solo"
   task :solo, roles: :target do
-    reinstall_cookbook_repo
-    reinstall_dna
     sudo_env "chef-solo -c #{dna_dir}/solo.rb -j #{dna_dir}/dna.json -l debug"
   end
 
@@ -157,6 +160,12 @@ end
 def msudo(cmds)
   cmds.each do |cmd|
     sudo cmd
+  end
+end
+
+def mrun(cmds)
+  cmds.each do |cmd|
+    run cmd
   end
 end
 
