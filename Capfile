@@ -27,6 +27,7 @@
 # THE SOFTWARE.
 
 # configuration
+set :port, 22
 default_run_options[:pty] = true # fix to display interactive password prompts
 role :target, ARGV[-1]
 cwd = File.expand_path(File.dirname(__FILE__))
@@ -106,33 +107,28 @@ namespace :chef do
     sudo 'aptitude install -y rsync'
     sudo "mkdir -m 0775 -p #{cookbook_dir}"
     sudo "chown `whoami`.`whoami` #{cookbook_dir}"
-    sudo "mkdir -p #{dna_dir}"
     reinstall_cookbook_repo
   end
 
   desc "Re-install Cookbook Repository from cwd"
   task :reinstall_cookbook_repo, roles: :target do
     rsync cwd + '/', cookbook_dir
-    sudo_put %Q(
-      file_cache_path "#{cookbook_dir}"
-      cookbook_path ["#{cookbook_dir}/cookbooks", "#{cookbook_dir}/site-cookbooks"]
-      role_path "#{cookbook_dir}/roles"
-      ), "#{dna_dir}/solo.rb",
-      via: :scp,
-      mode: '0644'
   end
 
   desc "Install ./dna/*.json for specified node"
   task :install_dna, roles: :target do
-    sudo "mkdir -p #{dna_dir}"
+    sudo 'aptitude install -y rsync'
+    sudo "mkdir -m 0775 -p #{dna_dir}"
+    sudo "chown `whoami`.`whoami` #{dna_dir}"
+    put %Q(file_cache_path "#{cookbook_dir}"
+cookbook_path ["#{cookbook_dir}/cookbooks", "#{cookbook_dir}/site-cookbooks"]
+role_path "#{cookbook_dir}/roles"), "#{dna_dir}/solo.rb", via: :scp, mode: "0644"
     reinstall_dna
   end
 
   desc "Re-install ./dna/*.json for specified node"
   task :reinstall_dna, roles: :target do
-    sudo_put File.read("#{cwd}/dna/#{node}.json"), "#{dna_dir}/dna.json",
-      via: :scp,
-      mode: '0644'
+    rsync "#{cwd}/dna/#{node}.json", "#{dna_dir}/dna.json"
   end
 
   desc "Execute Chef-Solo"
@@ -167,13 +163,6 @@ def mrun(cmds)
   cmds.each do |cmd|
     run cmd
   end
-end
-
-def sudo_put(data, target, opts={})
-  tmp = "/tmp/~tmp-#{rand(9999999)}"
-  put data, tmp, opts
-  on_rollback { run "rm #{tmp}" }
-  sudo "cp -f #{tmp} #{target} && rm #{tmp}"
 end
 
 def rsync(from, to)
