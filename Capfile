@@ -167,7 +167,7 @@ end
 
 def rsync(from, to)
   find_servers_for_task(current_task).each do |server|
-    puts `rsync -avz -e ssh "#{from}" "#{ENV['USER']}@#{server}:#{to}" \
+    puts `rsync -avz -e "ssh -p#{port}" "#{from}" "#{ENV['USER']}@#{server}:#{to}" \
       --exclude ".svn" --exclude ".git"`
   end
 end
