@@ -27,9 +27,10 @@
 # THE SOFTWARE.
 
 # configuration
-set :port, 22
 default_run_options[:pty] = true # fix to display interactive password prompts
-role :target, ARGV[-1]
+target = ARGV[-1].split(':')
+role :target, target[0]
+set :port, target[1] || 22
 cwd = File.expand_path(File.dirname(__FILE__))
 cookbook_dir = '/var/chef-solo'
 dna_dir = '/etc/chef'
@@ -98,8 +99,8 @@ namespace :chef do
 
   desc "Install Chef and Ohai gems as root"
   task :install_chef, roles: :target do
-    sudo 'gem source -a http://gems.opscode.com/'
-    sudo 'gem install ohai chef'
+    sudo_env 'gem source -a http://gems.opscode.com/'
+    sudo_env 'gem install ohai chef'
   end
 
   desc "Install Cookbook Repository from cwd"
