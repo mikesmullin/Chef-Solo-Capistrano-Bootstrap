@@ -139,6 +139,13 @@ role_path "#{cookbook_dir}/roles"), "#{dna_dir}/solo.rb", via: :scp, mode: "0644
     exit # subsequent args are not tasks to be run
   end
 
+  desc "Resume Execution of Chef-Solo"
+  task :resume_solo, roles: :target do
+    reinstall_cookbook_repo
+    reinstall_dna
+    solo
+  end
+
   desc "Remove all traces of Chef"
   task :cleanup, roles: :target do
     msudo [

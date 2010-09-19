@@ -50,7 +50,7 @@ out in case one fails so you can resume from where it left off.
 
 Also, during development, it is handy to use:
 
-     reset && cap chef:reinstall_cookbook_repo chef:reinstall_dna chef:solo <role> <remote_host>
+     reset && cap chef:resume_solo <role> <remote_host>
 
 Which will push out your latest cookbook plus the dna.json and execute chef-solo on it.
 
