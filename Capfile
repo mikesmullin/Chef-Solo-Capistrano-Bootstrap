@@ -2,7 +2,7 @@
 # Chef-Solo Capistrano Bootstrap
 #
 # usage:
-#   cap chef:bootstrap <role> <remote_host>
+#   cap chef:bootstrap <dna> <remote_host>
 #
 # NOTICE OF LICENSE
 #
@@ -29,6 +29,9 @@
 # configuration
 default_run_options[:pty] = true # fix to display interactive password prompts
 target = ARGV[-1].split(':')
+if (u = ARGV[-1].split('@')[-2])
+  set(:user, u) 
+end
 role :target, target[0]
 set :port, target[1] || 22
 cwd = File.expand_path(File.dirname(__FILE__))
@@ -107,7 +110,7 @@ namespace :chef do
   task :install_cookbook_repo, roles: :target do
     sudo 'aptitude install -y rsync'
     sudo "mkdir -m 0775 -p #{cookbook_dir}"
-    sudo "chown `whoami`.`whoami` #{cookbook_dir}"
+    sudo "chown `whoami` #{cookbook_dir}"
     reinstall_cookbook_repo
   end
 
@@ -120,7 +123,7 @@ namespace :chef do
   task :install_dna, roles: :target do
     sudo 'aptitude install -y rsync'
     sudo "mkdir -m 0775 -p #{dna_dir}"
-    sudo "chown `whoami`.`whoami` #{dna_dir}"
+    sudo "chown `whoami` #{dna_dir}"
     put %Q(file_cache_path "#{cookbook_dir}"
 cookbook_path ["#{cookbook_dir}/cookbooks", "#{cookbook_dir}/site-cookbooks"]
 role_path "#{cookbook_dir}/roles"), "#{dna_dir}/solo.rb", via: :scp, mode: "0644"
