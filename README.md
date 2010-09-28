@@ -1,4 +1,4 @@
-Chef-Solo Capistrano Bootstrap 
+Chef-Solo Capistrano Bootstrap
 ============
 by Mike Smullin <mike@smullindesign.com>
 
@@ -34,7 +34,7 @@ Usage
 
   - Execute the Capistrano Chef Bootstrap task
 
-    `cap chef:bootstrap <role> <remote_host>`
+    `cap chef:bootstrap <dna> <remote_host>`
 
   - Enjoy!
 
@@ -42,17 +42,30 @@ Usage
 Example
 ------------
 
-    cap chef:bootstrap observer 149.60.10.25
+    cap chef:bootstrap <dna> <remote_host>
 
-There are other commands you can find by `cap -vT` but remember to include the last
-two args as `<role>` and `<remote_host>` for all of them, or they won't work. These are separated
-out in case one fails so you can resume from where it left off.
+There are other commands you can find by `cap -vT`.
 
-Also, during development, it is handy to use:
+For eaxmple, during development, it is handy to use:
 
-     reset && cap chef:resume_solo <role> <remote_host>
+     cap chef:resolo <dna> <remote_host>
 
 Which will push out your latest cookbook plus the dna.json and execute chef-solo on it.
+
+When you are done, you can remove all traces of Chef with:
+
+     cap chef:clean <dna> <remote_host>
+
+Or if you want to nuke and pave to be sure old recipes are not causing problems:
+
+     cap chef:clean_solo <dna> <remote_host>
+
+If you are like me you enjoy provisioning a new Rackspace VPS and issuing this command
+to automatically create my users, groups, and copy ssh keys over for a passwordless ssh session
+going forward:
+
+     cap chef:init_server <new_server_remote_ip>
+
 
 Future goals
 ------------
