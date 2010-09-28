@@ -30,7 +30,7 @@
 default_run_options[:pty] = true # fix to display interactive password prompts
 target = ARGV[-1].split(':')
 if (u = ARGV[-1].split('@')[-2])
-  set(:user, u) 
+  set(:user, u)
 end
 role :target, target[0]
 set :port, target[1] || 22
@@ -39,8 +39,42 @@ cookbook_dir = '/var/chef-solo'
 dna_dir = '/etc/chef'
 node = ARGV[-2]
 
-# tasks
+
 namespace :chef do
+  desc "Initialize a fresh Ubuntu install; create users, groups, upload pubkey, etc."
+  task :init_server, roles: :target do
+    run %q(echo '
+# /etc/sudoers
+#
+# This file MUST be edited with the 'visudo' command as root.
+#
+# See the man page for details on how to write a sudoers file.
+#
+
+Defaults  env_reset
+
+# Host alias specification
+
+# User alias specification
+
+# Cmnd alias specification
+
+# User privilege specification
+#root  ALL=(ALL) ALL
+
+# Uncomment to allow members of group sudo to not need a password
+# (Note that later entries override this, so you might need to move
+# it further down)
+%sudo ALL=NOPASSWD: ALL
+
+# Members of the admin group may gain root privileges
+#%admin ALL=(ALL) ALL' > /etc/sudoers)
+    run 'groupadd developers; exit 0'
+    create_user `whoami`, 'l0WlW3pH6hxj.', 'developers', 'sudo', `cat ~/.ssh/id_rsa.pub`
+    run 'rm /etc/motd; exit 0'
+    abort 'Prep successful!'
+  end
+
   desc "Bootstrap an Ubuntu 10.04 server and kick-start Chef-Solo"
   task :bootstrap, roles: :target do
     install_rvm_ruby
@@ -142,24 +176,40 @@ role_path "#{cookbook_dir}/roles"), "#{dna_dir}/solo.rb", via: :scp, mode: "0644
     exit # subsequent args are not tasks to be run
   end
 
-  desc "Resume Execution of Chef-Solo"
-  task :resume_solo, roles: :target do
+  desc "Reinstall and Execute Chef-Solo"
+  task :resolo, roles: :target do
     reinstall_cookbook_repo
     reinstall_dna
     solo
   end
 
+  desc "Cleanup, Reinstall, and Execute Chef-Solo"
+  task :clean_solo, roles: :target do
+    cleanup
+    install_chef
+    install_cookbook_repo
+    install_dna
+    solo
+  end
+
   desc "Remove all traces of Chef"
   task :cleanup, roles: :target do
-    msudo [
-      "rm -rf #{dna_dir} #{cookbook_dir}",
-      'gem uninstall -ay chef ohai'
-    ]
+    sudo "rm -rf #{dna_dir} #{cookbook_dir}"
+    sudo_env 'gem uninstall -ax chef ohai'
   end
 end
 
 
 # helpers
+def create_user(user, pass, group, groups, pubkey)
+  run "groupadd #{user}; exit 0"
+  run "useradd -s /bin/bash -m -g #{group} -G #{groups},#{user} -p #{pass} #{user}"
+  ssh_dir = "/home/#{user}/.ssh"
+  run "mkdir -pm700 #{ssh_dir} && touch #{ssh_dir}/authorized_keys && chmod 600 #{ssh_dir}/authorized_keys && echo '#{pubkey}' >> #{ssh_dir}/authorized_keys && chown -R #{user}.#{group} #{ssh_dir}"
+  run "sed -ir 's/^\\(AllowUsers\\s\\+.\\+\\)$/\\1 #{user}/' /etc/ssh/sshd_config"
+  run 'service ssh restart'
+end
+
 def sudo_env(cmd)
   run "#{sudo} -i #{cmd}"
 end
@@ -181,4 +231,16 @@ def rsync(from, to)
     puts `rsync -avz -e "ssh -p#{port}" "#{from}" "#{ENV['USER']}@#{server}:#{to}" \
       --exclude ".svn" --exclude ".git"`
   end
+end
+
+def bash(cmd)
+  run %Q(echo "#{cmd}" > /tmp/bash)
+  run "sh /tmp/bash"
+  run "rm /tmp/bash"
+end
+
+def bash_sudo(cmd)
+  run %Q(echo "#{cmd}" > /tmp/bash)
+  sudo_env "sh /tmp/bash"
+  run "rm /tmp/bash"
 end
